@@ -65,6 +65,18 @@ myproc(void) {
   return p;
 }
 
+// Set priority function to set a process' priority
+void
+setpriority(int priority) {
+  struct proc *p = myproc();
+  p->priority = priority;
+}
+int
+getpriority(void) {
+  struct proc *p = myproc();
+  return p->priority;
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -88,7 +100,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
+  p->priority = 10; // Per lab2 testbench, default priority should be set to 10
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -381,20 +393,43 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+  struct proc *p1; // process pointer to set when we've found a high priority process 
+ 
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
+    struct proc *highPproc = 0; // Define the high priority process
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-
+      highPproc = p; // Set highPproc to first found runnable process
+      for(p1 = ptable.proc; p1 < &ptable.proc[NPROC]; p1++){ // Loop to see if we can find a process with higher priority
+        if(p1->state != RUNNABLE)
+          continue;
+        if(highPproc->priority > p1->priority) // The lower the proc->priority value, the higher the proc priority
+          highPproc = p1;
+        if(highPproc != p1){ // We've decided not to schedule p1, so increase it's priority
+          if(p1->priority >= 2){
+	    p1->priority = p1->priority - 2;
+          }
+          else if (p1->priority == 1) {
+	    p1->priority = 0;
+          }
+        }
+      }
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      p = highPproc; // Set the process p to the high priority process
+      if(p->priority < 30){
+        p->priority = p->priority + 2; // Increment chosen process' priority to decrease the chances it will run again
+      }
+      else if (p->priority == 30){
+	p->priority = 31;
+      }
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;

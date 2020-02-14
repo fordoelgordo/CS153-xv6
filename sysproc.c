@@ -46,6 +46,22 @@ sys_waitpid(void)
 }
 
 int
+sys_setpriority(void)
+{
+  int n;
+  if(argint(0, &n) < 0)
+    return -1;
+  setpriority(n);
+  return 0; // never reached
+}
+
+int
+sys_getpriority(void)
+{
+  return getpriority();
+}
+
+int
 sys_kill(void)
 {
   int pid;
